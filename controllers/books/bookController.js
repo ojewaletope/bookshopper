@@ -1,0 +1,510 @@
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+import { v2 } from "cloudinary";
+import { v4 as uuidv4 } from "uuid";
+import mysql from "mysql2/promise";
+import jwt from "jsonwebtoken";
+import { keys } from "../../config/keys.js";
+import excel from "exceljs";
+import Book from '../../models/book.js'
+import Category from '../../models/bookCategory.js'
+const config = require("../../config/config.json");
+const fs = require("fs");
+
+
+v2.config({
+  cloud_name: "diqxz8ax5",
+  api_key: 819927547527411,
+  api_secret: "asT5UxZz4mEvTUsw51xUsnAt7IM",
+});
+const connection = mysql.createConnection(config.database);
+
+// mongodb
+
+export const saveBook = async (req, res) => {
+  const token = req.headers["authorization"].split(" ")[1];
+  jwt.verify(token, keys.keys, async (err, result) => {
+    if (err) {
+      return res.status(401).json({
+        status: false,
+        message: "Session expired, please log in",
+      });
+    } else {
+      const payload = req.body;
+      if (req.files === null) {
+        return res.status(400).json({
+          status: false,
+          message: "Product image is required"
+        })
+      } else {
+        try {
+          const file = req.files.image
+          await v2.uploader.upload(file.tempFilePath, async (err, response) => {
+            if (err) throw err;
+            if (response) {
+              const book = new Book({
+                id: uuidv4(),
+                categoryId: payload.categoryId,
+                title: payload.title,
+                author: payload.author,
+                price: payload.price,
+                quantity: payload.quantity,
+                image: response.secure_url
+              });
+              const savedBook = await book.save();
+              if (savedBook) {
+                return res.status(200).json({
+                  status: true,
+                  message: "Book saved successfully"
+                })
+              } else {
+                return res.status(400).json({
+                  status: false,
+                  message: "An error occurred, Couldn't save books"
+                })
+              }
+            }
+          })
+        } catch (err) {
+          console.log(err)
+        }
+      }
+
+    }
+  })
+}
+
+// add books
+export const createBooks = async (req, res) => {
+  const jwtToken = req.headers["authorization"].split(" ");
+  const token = jwtToken[1];
+  jwt.verify(token, keys.keys, async (err, decoded) => {
+    if (err) {
+      return res.status(401).json({
+        status: false,
+        message: "Session expired, please log in again",
+      });
+    } else {
+      // console.log(decoded)
+      const payload = req.body;
+      const { id, title, author, price, quantity, categoryId } = payload;
+      try {
+        if (!payload.id) {
+          const file = req.files.image;
+          //  let bitmap = fs.readFileSync(file.tempFilePath);
+          //  const tmp  = bitmap.toString().replace(/[“”‘’]/g,'');
+          //  const base64 = new Buffer(tmp).toString('base64');
+          // res.send(base64)
+          //  return;
+          await v2.uploader.upload(file.tempFilePath, async (err, result) => {
+            if (err) throw err;
+            if (result) {
+              // const newBook = {...payload, id: uuidv4(), image: result.secure_url}
+              payload.id = uuidv4();
+              payload.image = result.secure_url;
+              payload.available = true;
+              payload.createdOn = new Date();
+              const connection = await mysql.createConnection(config.database);
+              const [
+                rows,
+                field,
+              ] = await connection.query(
+                `INSERT INTO books (id, categoryId, title, author, price, available, quantity, image, createdOn) VALUES (?, ?, ?, ?, ?, ?, ? ,?, ?)`,
+                [
+                  payload.id,
+                  categoryId,
+                  title,
+                  author,
+                  price,
+                  payload.available,
+                  quantity,
+                  payload.image,
+                  payload.createdOn,
+                ]
+              );
+              if (rows.affectedRows > 0) {
+                res.status(200).json({
+                  status: true,
+                  message: "Book added successfully",
+                });
+              } else {
+                res.status(400).json({
+                  status: false,
+                  message: "Failed to add book",
+                });
+              }
+            }
+          });
+        } else {
+          if (req.files !== null) {
+            const file = req.files.image;
+            await v2.uploader.upload(file.tempFilePath, async (err, result) => {
+              if (err) throw err;
+              if (result) {
+                try {
+                  const connection = await mysql.createConnection(
+                    config.database
+                  );
+                  const [
+                    rows,
+                    fields,
+                  ] = await connection.query(
+                    `UPDATE books SET categoryId = ?, title = ?, author = ?, price = ?, quantity = ?, image = ? WHERE id = ?`,
+                    [
+                      categoryId,
+                      title,
+                      author,
+                      price,
+                      quantity,
+                      result.secure_url,
+                      id,
+                    ]
+                  );
+                  if (rows.affectedRows > 0) {
+                    return res.status(200).json({
+                      status: true,
+                      message: "Book updated successfully",
+                    });
+                  } else {
+                    res.status(400).json({
+                      status: false,
+                      message: "Book not updated",
+                    });
+                  }
+                } catch (err) {}
+              }
+            });
+          } else {
+            try {
+              const connection = await mysql.createConnection(config.database);
+              const [
+                rows,
+                fields,
+              ] = await connection.query(
+                `UPDATE books SET categoryId = ?, title = ?, author = ?, price = ?, quantity = ? WHERE id = ?`,
+                [categoryId, title, author, price, quantity, id]
+              );
+              if (rows.affectedRows > 0) {
+                return res.status(200).json({
+                  status: true,
+                  message: "Book updated successfully",
+                });
+              } else {
+                res.status(400).json({
+                  status: false,
+                  message: "Book not updated",
+                });
+              }
+            } catch (err) {
+              console.log(err.message);
+            }
+          }
+        }
+      } catch (err) {
+        console.log(err.message);
+      }
+    }
+  });
+};
+
+//get books
+
+// mongo db
+export const getSavedBooks = async (req, res) => {
+  const token = req.headers["authorization"].split(" ")[1];
+  jwt.verify(token, keys.keys, async (err, decoded) => {
+    if (err) {
+      return res.status(401).json({
+        status: false,
+        message: "Unauthorized, please log in",
+      });
+    } else {
+      const books = await Book.aggregate([
+        {
+          $graphLookup: {
+            from: "categories",
+            startWith: "$categoryId",
+            connectFromField: "categoryName",
+            connectToField: "categoryId",
+            maxDepth: 2,
+            depthField: "numConnections",
+            as: "category"
+          }
+        }
+      ])
+      res.send(books)
+    }
+  })
+}
+export const getBooks = async (req, res) => {
+  const token = req.headers["authorization"].split(" ")[1];
+  jwt.verify(token, keys.keys, async (err, decoded) => {
+    if (err) {
+      return res.status(401).json({
+        status: false,
+        message: "Session expired, please log in",
+      });
+    } else {
+      try {
+        const connection = await mysql.createConnection(config.database);
+        const [rows, fields] = await connection.query(
+          `SELECT a.id, a.categoryId, b.categoryName, a.title, a.author, a.price, a.available, a.quantity, a.image, a.createdOn FROM books a INNER JOIN bookcategories b ON a.categoryId = b.categoryId WHERE a.deleted = 0`
+        );
+        if (rows.length > 0) {
+          rows.map((item) => {
+            if (item.available == 0) {
+              item.available = false;
+            }
+            if (item.available == 1) {
+              item.available = true;
+            }
+          });
+
+          return res.status(200).json({
+            status: true,
+            result: rows,
+          });
+        } else {
+          return res.status(200).json({
+            status: true,
+            result: [],
+          });
+        }
+      } catch (err) {}
+    }
+  });
+};
+
+export const exportBooks = async (req, res) => {
+  const token = req.headers["authorization"].split(" ")[1];
+  jwt.verify(token, keys.keys, async (err, decoded) => {
+    if (err) {
+      return res.status(401).json({
+        status: false,
+        message: "Session expired, please log in again",
+      });
+    }
+    try {
+      const connection = await mysql.createConnection(config.database);
+      const [rows, fields] = await connection.query(
+        `SELECT  b.categoryName, a.title, a.author, a.price, a.quantity FROM books a INNER JOIN bookcategories b ON a.categoryId = b.categoryId WHERE a.deleted = 0`
+      );
+      const jsonBooks = JSON.parse(JSON.stringify(rows));
+      let workbook = new excel.Workbook();
+      let workSheet = workbook.addWorksheet("Books");
+      workSheet.columns = [
+        { header: "Category", key: "categoryId", width: 10 },
+        { header: "Title", key: "title", width: 10 },
+        { header: "Author", key: "author", width: 10 },
+        { header: "Price", key: "price", width: 10 },
+        { header: "Quantity", key: "quantity", width: 10 },
+      ];
+      workSheet.addRow(jsonBooks);
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=" + "books.xlsx"
+      );
+      return workbook.xlsx.write(res).then(() => {
+        res.status(200).end();
+      });
+    } catch (err) {
+      console.log(err);
+    }
+  });
+};
+export const deleteBook = async (req, res) => {
+  const payload = req.body;
+  const { itemId } = payload;
+  try {
+    const connection = await mysql.createConnection(config.database);
+    for (let i = 0; i <= itemId.length; i++) {
+      console.log(itemId.length);
+      const [
+        rows,
+        fields,
+      ] = await connection.query(`UPDATE books SET deleted = 1 WHERE id = ?`, [
+        itemId[i],
+      ]);
+      if (rows.affectedRows > 0) {
+        return res.send("hi");
+      } else {
+        return res.send("nay");
+      }
+    }
+  } catch (err) {
+    console.log(err.message);
+  }
+};
+
+// mongodb
+export const saveCategory = async (req, res) => {
+  const token = req.headers["authorization"].split(" ")[1];
+  const {categoryName} = req.body;
+  jwt.verify(token, keys.keys, async (err, result) => {
+    if (err) {
+      return res.status(401).json({
+        status: false,
+        message: "Unauthorized, please log in",
+      });
+    } else {
+      try {
+        if (!categoryName) {
+          return res.status(400).json({
+            message: "Category name is requires"
+          })
+        }
+        const category  = await Category.findOne({categoryName: categoryName});
+        if (category) {
+          return res.status(400).json({
+            status: false,
+            message: "Category exists"
+          })
+        } else {
+          const newCategory = new Category({
+            categoryId: uuidv4(),
+            categoryName: categoryName.toLowerCase(),
+          });
+          const result = await newCategory.save();
+          if (result) {
+            return res.status(200).json({
+              status: true,
+              message: "Category added successfully"
+            })
+          } else {
+            return res.status(200).json({
+              status: false,
+              message: "Failed to add category"
+            })
+          }
+        }
+      } catch (err) {
+        console.log(err)
+      }
+    }
+  })
+
+}
+export const getCategories = async (req, res) => {
+  const token = req.headers["authorization"].split(" ")[1];
+  jwt.verify(token, keys.keys, async (err, result) => {
+    if (err) {
+      return res.status(401).json({
+        status: false,
+        message: "Unauthorized, please log in",
+      });
+    } else {
+      try {
+        const categories = await Category.find({}, {categoryId: 1, categoryName: 1, _id: 0})
+        if (categories){
+          return res.status(200).json({
+            status: true,
+            result: categories
+          })
+        } else {
+          return res.status(200).json({
+            status: true,
+            result: []
+          })
+        }
+      } catch (err) {
+
+      }
+    }
+  })
+
+}
+// mysql
+export const addCategory = async (req, res) => {
+  const token = req.headers["authorization"].split(" ")[1];
+  jwt.verify(token, keys.keys, async (err, decoded) => {
+    if (err) {
+      return res.status(401).json({
+        status: false,
+        message: "Session expired, please log in",
+      });
+    } else {
+      const payload = req.body;
+      try {
+        if (!payload.categoryId) {
+          payload.createdOn = new Date();
+          const connection = await mysql.createConnection(config.database);
+          const [
+            rows,
+            field,
+          ] = await connection.query(
+            `INSERT INTO bookcategories (categoryName, createdOn) VALUES (?, ?)`,
+            [payload.categoryName, payload.createdOn]
+          );
+          if (rows.affectedRows > 0) {
+            return res.status(200).json({
+              status: true,
+              message: "Category added successfully",
+            });
+          } else {
+            return res.status(400).json({
+              status: false,
+              message: "Unable to add category",
+            });
+          }
+        } else {
+          const [
+            rows,
+            fields,
+          ] = await connection.query(
+            `UPDATE bookcategories SET name = ? WHERE categoryId = ?`,
+            [payload.name, payload.categoryId]
+          );
+          if (rows.affectedRows > 0) {
+            return res.status(200).json({
+              status: true,
+              message: "Category updated successfully",
+            });
+          } else {
+            return res.status(400).json({
+              status: false,
+              message: "Unable to update category",
+            });
+          }
+        }
+      } catch (err) {
+        console.log(err.message);
+      }
+    }
+  });
+};
+
+export const getCategory = async (req, res) => {
+  const token = req.headers["authorization"].split(" ")[1];
+  jwt.verify(token, keys.keys, async (err, decoded) => {
+    if (err) {
+      return res.status(401).json({
+        status: false,
+        message: "Session expired, please log in",
+      });
+    } else {
+      try {
+        const connection = await mysql.createConnection(config.database);
+        const [rows, fields] = await connection.query(
+          `SELECT * FROM bookcategories`
+        );
+        if (rows.length > 0) {
+          return res.status(200).json({
+            status: true,
+            result: rows,
+          });
+        } else {
+          return res.status(200).json({
+            status: true,
+            result: [],
+          });
+        }
+      } catch (err) {
+        console.log(err.message);
+      }
+    }
+  });
+};
