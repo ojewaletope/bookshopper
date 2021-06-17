@@ -38,7 +38,7 @@ app.use(bodyParser.json());
 app.use(`/api/v1/users`, usersRoutes);
 app.use("/api/v1/books", booksRoutes);
 
-const PORT = 3200;
+const PORT = process.ENV.PORT || 3200;
 
 app.listen(PORT, () => {
   console.log(`Running on port ${PORT}`);
