@@ -1,8 +1,12 @@
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 import express from "express";
 import fileupload from "express-fileupload";
-import dotenv from "dotenv";
+// import dotenv from "dotenv";
+const dotenv = require("dotenv")
 import bodyParser from "body-parser";
 import cors from "cors";
+
 dotenv.config();
 import usersRoutes from "./routes/users.js";
 import booksRoutes from "./routes/books.js";
