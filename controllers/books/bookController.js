@@ -17,7 +17,7 @@ v2.config({
   api_key: 819927547527411,
   api_secret: "asT5UxZz4mEvTUsw51xUsnAt7IM",
 });
-const connection = mysql.createConnection(config.database);
+// const connection = mysql.createConnection(config.database);
 
 // mongodb
 
