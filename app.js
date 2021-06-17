@@ -9,7 +9,7 @@ import booksRoutes from "./routes/books.js";
 import mongoose from "mongoose";
 const app = express();
 const uri =
-  "mongodb+srv://admin:admin@bookshopper.ojvk0.mongodb.net/bookshopper?retryWrites=true&w=majority";
+  `mongodb+srv://${process.env.DB_ADMIN}:${process.env.DB_PWD}@bookshopper.ojvk0.mongodb.net/bookshopper?retryWrites=true&w=majority`;
 
 
 try {
@@ -38,7 +38,7 @@ app.use(bodyParser.json());
 app.use(`/api/v1/users`, usersRoutes);
 app.use("/api/v1/books", booksRoutes);
 
-const PORT = process.ENV.PORT || 3200;
+const PORT = process.env.PORT || 3200;
 
 app.listen(PORT, () => {
   console.log(`Running on port ${PORT}`);

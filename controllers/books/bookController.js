@@ -13,9 +13,9 @@ const fs = require("fs");
 
 
 v2.config({
-  cloud_name: "diqxz8ax5",
-  api_key: 819927547527411,
-  api_secret: "asT5UxZz4mEvTUsw51xUsnAt7IM",
+  cloud_name: process.env.CLOUD_NAME,
+  api_key: process.env.API_KEY,
+  api_secret: process.env.API_SECRET,
 });
 // const connection = mysql.createConnection(config.database);
 
