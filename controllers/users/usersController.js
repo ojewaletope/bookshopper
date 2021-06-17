@@ -5,10 +5,13 @@ import { v4 as uuidv4 } from "uuid";
 import mysql from "mysql2/promise";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { keys } from "../../config/keys.js";
 import User from "../../models/User.js";
 
-const config = require("../../config/config.json");
+const config = {
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  database: process.env.DB_NAME
+};
 
 v2.config({
   cloud_name: process.env.CLOUD_NAME,
@@ -89,7 +92,7 @@ export const login = async (req, res) => {
        const payload = {
          userId: user.id,
        };
-       jwt.sign(payload, keys.keys, { expiresIn: "2h" }, (err, token) => {
+       jwt.sign(payload, process.env.JWT_KEY, { expiresIn: "2h" }, (err, token) => {
          return res.status(200).json({
            status: true,
            token,
@@ -150,7 +153,7 @@ export const createUser = async (req, res) => {
       if (result) {
         const user = { ...payload, id: uuidv4(), image_url: result.secure_url };
         try {
-          const connection = await mysql.createConnection(config.database);
+          const connection = await mysql.createConnection(config);
           const [
             rows,
             fields,
@@ -221,7 +224,7 @@ export const createUser = async (req, res) => {
       await v2.uploader.upload(file.tempFilePath, async (err, result) => {
         if (result) {
           try {
-            const connection = await mysql.createConnection(config.database);
+            const connection = await mysql.createConnection(config);
             const [
               rows,
               fields,
@@ -246,7 +249,7 @@ export const createUser = async (req, res) => {
         }
       });
     } else {
-      const connection = await mysql.createConnection(config.database);
+      const connection = await mysql.createConnection(config);
       const [
         rows,
         fields,
@@ -282,7 +285,7 @@ export const userLogin = async (req, res) => {
       .catch((err) => {
         console.log(err);
       });
-    const connection = await mysql.createConnection(config.database);
+    const connection = await mysql.createConnection(config);
     const [
       rows,
       fields,
@@ -297,7 +300,7 @@ export const userLogin = async (req, res) => {
           const payload = {
             userId: user.id,
           };
-          jwt.sign(payload, keys.keys, { expiresIn: "2h" }, (err, token) => {
+          jwt.sign(payload, process.env.JWT_KEY, { expiresIn: "2h" }, (err, token) => {
             return res.status(200).json({
               status: true,
               token,

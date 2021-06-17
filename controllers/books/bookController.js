@@ -4,26 +4,23 @@ import { v2 } from "cloudinary";
 import { v4 as uuidv4 } from "uuid";
 import mysql from "mysql2/promise";
 import jwt from "jsonwebtoken";
-import { keys } from "../../config/keys.js";
 import excel from "exceljs";
-import Book from '../../models/book.js'
-import Category from '../../models/bookCategory.js'
+import Book from "../../models/book.js";
+import Category from "../../models/bookCategory.js";
 const config = require("../../config/config.json");
 const fs = require("fs");
-
 
 v2.config({
   cloud_name: process.env.CLOUD_NAME,
   api_key: process.env.API_KEY,
   api_secret: process.env.API_SECRET,
 });
-// const connection = mysql.createConnection(config.database);
 
 // mongodb
 
 export const saveBook = async (req, res) => {
   const token = req.headers["authorization"].split(" ")[1];
-  jwt.verify(token, keys.keys, async (err, result) => {
+  jwt.verify(token, process.env.JWT_KEY, async (err, result) => {
     if (err) {
       return res.status(401).json({
         status: false,
@@ -34,11 +31,11 @@ export const saveBook = async (req, res) => {
       if (req.files === null) {
         return res.status(400).json({
           status: false,
-          message: "Product image is required"
-        })
+          message: "Product image is required",
+        });
       } else {
         try {
-          const file = req.files.image
+          const file = req.files.image;
           await v2.uploader.upload(file.tempFilePath, async (err, response) => {
             if (err) throw err;
             if (response) {
@@ -49,36 +46,35 @@ export const saveBook = async (req, res) => {
                 author: payload.author,
                 price: payload.price,
                 quantity: payload.quantity,
-                image: response.secure_url
+                image: response.secure_url,
               });
               const savedBook = await book.save();
               if (savedBook) {
                 return res.status(200).json({
                   status: true,
-                  message: "Book saved successfully"
-                })
+                  message: "Book saved successfully",
+                });
               } else {
                 return res.status(400).json({
                   status: false,
-                  message: "An error occurred, Couldn't save books"
-                })
+                  message: "An error occurred, Couldn't save books",
+                });
               }
             }
-          })
+          });
         } catch (err) {
-          console.log(err)
+          console.log(err);
         }
       }
-
     }
-  })
-}
+  });
+};
 
 // add books
 export const createBooks = async (req, res) => {
   const jwtToken = req.headers["authorization"].split(" ");
   const token = jwtToken[1];
-  jwt.verify(token, keys.keys, async (err, decoded) => {
+  jwt.verify(token, process.env.JWT_KEY, async (err, decoded) => {
     if (err) {
       return res.status(401).json({
         status: false,
@@ -104,7 +100,11 @@ export const createBooks = async (req, res) => {
               payload.image = result.secure_url;
               payload.available = true;
               payload.createdOn = new Date();
-              const connection = await mysql.createConnection(config.database);
+              const connection = await mysql.createConnection({
+                host: process.env.DB_HOST,
+                user: process.env.DB_USER,
+                database: process.env.DB_NAME,
+              });
               const [
                 rows,
                 field,
@@ -142,9 +142,9 @@ export const createBooks = async (req, res) => {
               if (err) throw err;
               if (result) {
                 try {
-                  const connection = await mysql.createConnection(
-                    config.database
-                  );
+                  const connection = await mysql.createConnection({
+                    host: process.env.DB_HOST,
+                  });
                   const [
                     rows,
                     fields,
@@ -176,7 +176,10 @@ export const createBooks = async (req, res) => {
             });
           } else {
             try {
-              const connection = await mysql.createConnection(config.database);
+              const connection = await mysql.createConnection({
+                host: process.env.DB_HOST,
+                user: process.env.DB_USER,
+              });
               const [
                 rows,
                 fields,
@@ -212,7 +215,7 @@ export const createBooks = async (req, res) => {
 // mongo db
 export const getSavedBooks = async (req, res) => {
   const token = req.headers["authorization"].split(" ")[1];
-  jwt.verify(token, keys.keys, async (err, decoded) => {
+  jwt.verify(token, process.env.JWT_KEY, async (err, decoded) => {
     if (err) {
       return res.status(401).json({
         status: false,
@@ -228,17 +231,17 @@ export const getSavedBooks = async (req, res) => {
             connectToField: "categoryId",
             maxDepth: 2,
             depthField: "numConnections",
-            as: "category"
-          }
-        }
-      ])
-      res.send(books)
+            as: "category",
+          },
+        },
+      ]);
+      res.send(books);
     }
-  })
-}
+  });
+};
 export const getBooks = async (req, res) => {
   const token = req.headers["authorization"].split(" ")[1];
-  jwt.verify(token, keys.keys, async (err, decoded) => {
+  jwt.verify(token, process.env.JWT_KEY, async (err, decoded) => {
     if (err) {
       return res.status(401).json({
         status: false,
@@ -246,7 +249,11 @@ export const getBooks = async (req, res) => {
       });
     } else {
       try {
-        const connection = await mysql.createConnection(config.database);
+        const connection = await mysql.createConnection({
+          host: process.env.DB_HOST,
+          user: process.env.DB_USER,
+          database: process.env.DB_NAME,
+        });
         const [rows, fields] = await connection.query(
           `SELECT a.id, a.categoryId, b.categoryName, a.title, a.author, a.price, a.available, a.quantity, a.image, a.createdOn FROM books a INNER JOIN bookcategories b ON a.categoryId = b.categoryId WHERE a.deleted = 0`
         );
@@ -277,7 +284,7 @@ export const getBooks = async (req, res) => {
 
 export const exportBooks = async (req, res) => {
   const token = req.headers["authorization"].split(" ")[1];
-  jwt.verify(token, keys.keys, async (err, decoded) => {
+  jwt.verify(token, process.env.JWT_KEY, async (err, decoded) => {
     if (err) {
       return res.status(401).json({
         status: false,
@@ -285,7 +292,11 @@ export const exportBooks = async (req, res) => {
       });
     }
     try {
-      const connection = await mysql.createConnection(config.database);
+      const connection = await mysql.createConnection({
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        database: process.env.DB_NAME,
+      });
       const [rows, fields] = await connection.query(
         `SELECT  b.categoryName, a.title, a.author, a.price, a.quantity FROM books a INNER JOIN bookcategories b ON a.categoryId = b.categoryId WHERE a.deleted = 0`
       );
@@ -320,7 +331,11 @@ export const deleteBook = async (req, res) => {
   const payload = req.body;
   const { itemId } = payload;
   try {
-    const connection = await mysql.createConnection(config.database);
+    const connection = await mysql.createConnection({
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      database: process.env.DB_NAME,
+    });
     for (let i = 0; i <= itemId.length; i++) {
       console.log(itemId.length);
       const [
@@ -343,8 +358,8 @@ export const deleteBook = async (req, res) => {
 // mongodb
 export const saveCategory = async (req, res) => {
   const token = req.headers["authorization"].split(" ")[1];
-  const {categoryName} = req.body;
-  jwt.verify(token, keys.keys, async (err, result) => {
+  const { categoryName } = req.body;
+  jwt.verify(token, process.env.JWT_KEY, async (err, result) => {
     if (err) {
       return res.status(401).json({
         status: false,
@@ -354,15 +369,15 @@ export const saveCategory = async (req, res) => {
       try {
         if (!categoryName) {
           return res.status(400).json({
-            message: "Category name is requires"
-          })
+            message: "Category name is requires",
+          });
         }
-        const category  = await Category.findOne({categoryName: categoryName});
+        const category = await Category.findOne({ categoryName: categoryName });
         if (category) {
           return res.status(400).json({
             status: false,
-            message: "Category exists"
-          })
+            message: "Category exists",
+          });
         } else {
           const newCategory = new Category({
             categoryId: uuidv4(),
@@ -372,25 +387,24 @@ export const saveCategory = async (req, res) => {
           if (result) {
             return res.status(200).json({
               status: true,
-              message: "Category added successfully"
-            })
+              message: "Category added successfully",
+            });
           } else {
             return res.status(200).json({
               status: false,
-              message: "Failed to add category"
-            })
+              message: "Failed to add category",
+            });
           }
         }
       } catch (err) {
-        console.log(err)
+        console.log(err);
       }
     }
-  })
-
-}
+  });
+};
 export const getCategories = async (req, res) => {
   const token = req.headers["authorization"].split(" ")[1];
-  jwt.verify(token, keys.keys, async (err, result) => {
+  jwt.verify(token, process.env.JWT_KEY, async (err, result) => {
     if (err) {
       return res.status(401).json({
         status: false,
@@ -398,29 +412,29 @@ export const getCategories = async (req, res) => {
       });
     } else {
       try {
-        const categories = await Category.find({}, {categoryId: 1, categoryName: 1, _id: 0})
-        if (categories){
+        const categories = await Category.find(
+          {},
+          { categoryId: 1, categoryName: 1, _id: 0 }
+        );
+        if (categories) {
           return res.status(200).json({
             status: true,
-            result: categories
-          })
+            result: categories,
+          });
         } else {
           return res.status(200).json({
             status: true,
-            result: []
-          })
+            result: [],
+          });
         }
-      } catch (err) {
-
-      }
+      } catch (err) {}
     }
-  })
-
-}
+  });
+};
 // mysql
 export const addCategory = async (req, res) => {
   const token = req.headers["authorization"].split(" ")[1];
-  jwt.verify(token, keys.keys, async (err, decoded) => {
+  jwt.verify(token, process.env.JWT_KEY, async (err, decoded) => {
     if (err) {
       return res.status(401).json({
         status: false,
@@ -431,7 +445,11 @@ export const addCategory = async (req, res) => {
       try {
         if (!payload.categoryId) {
           payload.createdOn = new Date();
-          const connection = await mysql.createConnection(config.database);
+          const connection = await mysql.createConnection({
+            host: process.env.DB_HOST,
+            user: process.env.DB_USER,
+            database: process.env.DB_NAME,
+          });
           const [
             rows,
             field,
@@ -479,7 +497,7 @@ export const addCategory = async (req, res) => {
 
 export const getCategory = async (req, res) => {
   const token = req.headers["authorization"].split(" ")[1];
-  jwt.verify(token, keys.keys, async (err, decoded) => {
+  jwt.verify(token, process.env.JWT_KEY, async (err, decoded) => {
     if (err) {
       return res.status(401).json({
         status: false,
@@ -487,7 +505,11 @@ export const getCategory = async (req, res) => {
       });
     } else {
       try {
-        const connection = await mysql.createConnection(config.database);
+        const connection = await mysql.createConnection({
+          host: process.env.DB_HOST,
+          user: process.env.DB_USER,
+          database: process.env.DB_NAME,
+        });
         const [rows, fields] = await connection.query(
           `SELECT * FROM bookcategories`
         );
