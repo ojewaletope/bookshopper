@@ -8,7 +8,7 @@ const book = new Schema({
     author: String,
     price: Number,
     quantity: Number,
-    image: String,
+    image: {type: Array, default: []},
     available: {type: Boolean, default: true},
     dateAdded: {type: Date, default: Date.now()}
 });

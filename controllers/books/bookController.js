@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import excel from "exceljs";
 import Book from "../../models/book.js";
 import Category from "../../models/bookCategory.js";
+import {multipleUpload} from "../uploads/fileUpload.js";
 const config = require("../../config/config.json");
 const fs = require("fs");
 
@@ -28,40 +29,41 @@ export const saveBook = async (req, res) => {
       });
     } else {
       const payload = req.body;
-      if (req.files === null) {
+      if (!payload.images) {
         return res.status(400).json({
           status: false,
           message: "Product image is required",
         });
       } else {
         try {
-          const file = req.files.image;
-          await v2.uploader.upload(file.tempFilePath, async (err, response) => {
-            if (err) throw err;
-            if (response) {
-              const book = new Book({
-                id: uuidv4(),
-                categoryId: payload.categoryId,
-                title: payload.title,
-                author: payload.author,
-                price: payload.price,
-                quantity: payload.quantity,
-                image: response.secure_url,
+          const urls = await multipleUpload(payload.images)
+          if (urls) {
+            const book = new Book({
+              id: uuidv4(),
+              categoryId: payload.categoryId,
+              title: payload.title,
+              author: payload.author,
+              price: payload.price,
+              quantity: payload.quantity,
+              image: urls,
+            });
+            const savedBook = await book.save();
+            if (savedBook) {
+              return res.status(200).json({
+                status: true,
+                message: "Book saved successfully",
               });
-              const savedBook = await book.save();
-              if (savedBook) {
-                return res.status(200).json({
-                  status: true,
-                  message: "Book saved successfully",
-                });
-              } else {
-                return res.status(400).json({
-                  status: false,
-                  message: "An error occurred, Couldn't save books",
-                });
-              }
+            } else {
+              return res.status(400).json({
+                status: false,
+                message: "An error occurred, Couldn't save books",
+              });
             }
-          });
+          }
+          // await v2.uploader.upload(file.tempFilePath, async (err, response) => {
+          //   if (err) throw err;
+          //
+          // });
         } catch (err) {
           console.log(err);
         }
@@ -83,7 +85,7 @@ export const createBooks = async (req, res) => {
     } else {
       // console.log(decoded)
       const payload = req.body;
-      const { id, title, author, price, quantity, categoryId } = payload;
+      const { id, title, author, price, quantity, categoryId, images } = payload;
       try {
         if (!payload.id) {
           const file = req.files.image;

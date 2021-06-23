@@ -1,9 +1,10 @@
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
+const dotenv = require("dotenv")
 import express from "express";
 import fileupload from "express-fileupload";
 // import dotenv from "dotenv";
-const dotenv = require("dotenv")
+
 import bodyParser from "body-parser";
 import cors from "cors";
 
@@ -39,6 +40,9 @@ app.use(
   })
 );
 app.use(bodyParser.json());
+app.get('/', (req, res) => {
+    res.send("Welcome")
+})
 app.use(`/api/v1/users`, usersRoutes);
 app.use("/api/v1/books", booksRoutes);
 
