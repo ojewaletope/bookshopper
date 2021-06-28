@@ -7,8 +7,8 @@ import jwt from "jsonwebtoken";
 import excel from "exceljs";
 import Book from "../../models/book.js";
 import Category from "../../models/bookCategory.js";
-import {multipleUpload} from "../uploads/fileUpload.js";
-const config = require("../../config/config.json");
+import { multipleUpload } from "../uploads/fileUpload.js";
+// const config = require("../../config/config.json");
 const fs = require("fs");
 
 v2.config({
@@ -17,6 +17,11 @@ v2.config({
   api_secret: process.env.API_SECRET,
 });
 
+const config = {
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  database: process.env.DB_NAME,
+};
 // mongodb
 
 export const saveBook = async (req, res) => {
@@ -36,7 +41,7 @@ export const saveBook = async (req, res) => {
         });
       } else {
         try {
-          const urls = await multipleUpload(payload.images)
+          const urls = await multipleUpload(payload.images);
           if (urls) {
             const book = new Book({
               id: uuidv4(),
@@ -77,6 +82,56 @@ export const createBooks = async (req, res) => {
   const jwtToken = req.headers["authorization"].split(" ");
   const token = jwtToken[1];
   jwt.verify(token, process.env.JWT_KEY, async (err, decoded) => {
+    if (err) {
+      return res.status(401).json({
+        status: true,
+        message: "Session expired, please log in",
+      });
+    }
+    const payload = req.body;
+    const { id, title, author, price, quantity, categoryId, images } = payload;
+    const connection = await mysql.createConnection(config);
+    try {
+      const urls = await multipleUpload(images);
+      if (urls) {
+        payload.id = uuidv4();
+        payload.available = true;
+        payload.createdOn = new Date();
+        payload.images = JSON.stringify(urls);
+        const [
+          rows,
+          field,
+        ] = await connection.query(
+          `INSERT INTO books (id, categoryId, title, author, price, available, quantity, images, createdOn) VALUES (?, ?, ?, ?, ?, ? ,?, ?, ?)`,
+          [
+            payload.id,
+            categoryId,
+            title,
+            author,
+            price,
+            payload.available,
+            quantity,
+            payload.images,
+            payload.createdOn,
+          ]
+        );
+        if (rows.affectedRows > 0) {
+          return res.status(200).json({
+            status: true,
+            message: "Book added successfully",
+          });
+        }
+      } else {
+        return res.status(400).json({
+          status: false,
+          message: "An error occurred, try again",
+        });
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  });
+  /*  jwt.verify(token, process.env.JWT_KEY, async (err, decoded) => {
     if (err) {
       return res.status(401).json({
         status: false,
@@ -209,7 +264,7 @@ export const createBooks = async (req, res) => {
         console.log(err.message);
       }
     }
-  });
+  }); */
 };
 
 //get books
@@ -242,6 +297,7 @@ export const getSavedBooks = async (req, res) => {
   });
 };
 export const getBooks = async (req, res) => {
+  console.log(req.query)
   const token = req.headers["authorization"].split(" ")[1];
   jwt.verify(token, process.env.JWT_KEY, async (err, decoded) => {
     if (err) {
@@ -256,30 +312,63 @@ export const getBooks = async (req, res) => {
           user: process.env.DB_USER,
           database: process.env.DB_NAME,
         });
+        let numRows;
+        let numPerPage = 4;
+        let page = parseInt(req.query.page) || 1;
+        let numPages;
+        let skip = (page-1) * numPerPage;
+        let limit = skip + ',' + numPerPage;
+        const [count] = await connection.query(`select count(a.id) as numRows from books a inner join bookcategories b on a.categoryId = b.categoryId where a.deleted=0`);
+        numRows = count[0].numRows;
+        numPages = Math.ceil(numRows / numPerPage);
+        console.log('number of pages:', numPages, {numRows, skip, limit});
         const [rows, fields] = await connection.query(
-          `SELECT a.id, a.categoryId, b.categoryName, a.title, a.author, a.price, a.available, a.quantity, a.image, a.createdOn FROM books a INNER JOIN bookcategories b ON a.categoryId = b.categoryId WHERE a.deleted = 0`
+          `SELECT a.id, a.categoryId, b.categoryName, a.title, a.author, a.price, a.available, a.quantity, a.images AS imageUrl, a.createdOn FROM books a INNER JOIN bookcategories b ON a.categoryId = b.categoryId WHERE a.deleted = 0 LIMIT ` + limit
         );
+        console.log(rows.length)
         if (rows.length > 0) {
           rows.map((item) => {
-            if (item.available == 0) {
+            if (item.available === 0) {
               item.available = false;
             }
-            if (item.available == 1) {
+            if (item.available === 1) {
               item.available = true;
             }
+            item.imageUrl = JSON.parse(item.imageUrl);
           });
-
+          let responsePayload = {
+            results: rows
+          };
+          if (page < numPages) {
+            responsePayload.pagination = {
+              current: page,
+              perPage: numPerPage,
+              previousPage: page > 0 ? page - 1 : undefined,
+              nextPage: page < numPages - 1 ? page + 1 : undefined,
+              numberOfItems: rows.length,
+              next: true,
+            }
+          }
+          else responsePayload.pagination = {
+            current: page,
+            perPage: numPerPage,
+            previousPage: page > 0 ? page - 1 : undefined,
+            numberOfItems: rows.length,
+            next: false,
+          }
           return res.status(200).json({
             status: true,
-            result: rows,
+           responsePayload
           });
         } else {
-          return res.status(200).json({
+            return res.status(200).json({
             status: true,
             result: [],
           });
         }
-      } catch (err) {}
+      } catch (err) {
+        console.log(err);
+      }
     }
   });
 };

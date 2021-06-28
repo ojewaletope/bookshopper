@@ -200,30 +200,30 @@ export const createUser = async (req, res) => {
                 bcrypt.hash(user.password, salt, async (err, hash) => {
                   if (err) throw err;
                   user.password = hash;
-                  // const [result, fields,] = await connection.query(
-                  //   `INSERT INTO users (id, name, email, phonenumber, username, password, photo, date_joined) VALUES (?, ?, ?, ?, ?, ? , ?, ?)`,
-                  //   [
-                  //     user.id,
-                  //     user.name,
-                  //     user.email,
-                  //     user.phoneNumber,
-                  //     user.username,
-                  //     user.password,
-                  //     user.image_url,
-                  //     user.date_joined,
-                  //   ]
-                  // );
-                  // if (result.affectedRows > 0) {
-                  //   return res.status(200).json({
-                  //     status: true,
-                  //     message: "Registration Successful",
-                  //   });
-                  // } else {
-                  //   return res.status(400).json({
-                  //     status: true,
-                  //     message: "Registration failed",
-                  //   });
-                  // }
+                  const [result, fields,] = await connection.query(
+                    `INSERT INTO users (id, name, email, phonenumber, username, password, photo, date_joined) VALUES (?, ?, ?, ?, ?, ? , ?, ?)`,
+                    [
+                      user.id,
+                      user.name,
+                      user.email,
+                      user.phoneNumber,
+                      user.username,
+                      user.password,
+                      user.image_url,
+                      user.date_joined,
+                    ]
+                  );
+                  if (result.affectedRows > 0) {
+                    return res.status(200).json({
+                      status: true,
+                      message: "Registration Successful",
+                    });
+                  } else {
+                    return res.status(400).json({
+                      status: true,
+                      message: "Registration failed",
+                    });
+                  }
                 });
               });
             }
@@ -303,14 +303,14 @@ export const userLogin = async (req, res) => {
   // return
   const { username, password } = req.body;
   try {
-    await User.find()
-      .exec()
-      .then((user) => {
-        console.log(user);
-      })
-      .catch((err) => {
-        console.log(err);
-      });
+    // await User.find()
+    //   .exec()
+    //   .then((user) => {
+    //     console.log(user);
+    //   })
+    //   .catch((err) => {
+    //     console.log(err);
+    //   });
     const connection = await mysql.createConnection(config);
     const [
       rows,
@@ -354,3 +354,5 @@ export const userLogin = async (req, res) => {
     console.log(err);
   }
 };
+
+

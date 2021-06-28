@@ -14,24 +14,24 @@ import booksRoutes from "./routes/books.js";
 import mongoose from "mongoose";
 const app = express();
 const uri =
-  `mongodb+srv://${process.env.DB_ADMIN}:${process.env.DB_PWD}@bookshopper.ojvk0.mongodb.net/bookshopper?retryWrites=true&w=majority`;
+  `mongodb://${process.env.DB_ADMIN}:${process.env.DB_PWD}@bookshopper.ojvk0.mongodb.net/bookshopper?retryWrites=true&w=majority`;
 
 
-try {
-    mongoose
-        .connect(uri, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        })
-        .then(() => {
-            console.log("connected to db");
-        })
-        .catch((err) => {
-            console.log(err);
-        });
-} catch (e) {
-    console.log(e)
-}
+// try {
+//     mongoose
+//         .connect(uri, {
+//             useNewUrlParser: true,
+//             useUnifiedTopology: true,
+//         })
+//         .then(() => {
+//             console.log("connected to db");
+//         })
+//         .catch((err) => {
+//             console.log(err);
+//         });
+// } catch (e) {
+//     console.log(e)
+// }
 
 app.use(cors());
 app.use(

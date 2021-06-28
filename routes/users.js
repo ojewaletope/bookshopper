@@ -10,6 +10,6 @@ router.get('/users', (req, res) => {
 })
 
 router.post('/register', register)
-router.post('/login', login)
+router.post('/login', userLogin)
 
 export default router

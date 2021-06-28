@@ -14,8 +14,8 @@ import {
 
 const router = express.Router();
 
-router.get("/getBooks", getSavedBooks);
-router.post("/addBook", saveBook);
+router.get("/getBooks", getBooks);
+router.post("/addBook", createBooks);
 router.post("/addCategory", saveCategory);
 router.get("/categories", getCategories);
 router.post("/deleteBook", deleteBook);
